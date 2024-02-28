@@ -82,7 +82,27 @@ static const uint16_t crc16tab[256]= {
 uint16_t crc16(const char *buf, int len) {
     int counter;
     uint16_t crc = 0;
-    for (counter = 0; counter < len; counter++)
-            crc = (crc<<8) ^ crc16tab[((crc>>8) ^ *buf++)&0x00FF];
+	for (counter = 0; counter < len; counter++) {
+		crc = (crc<<8) ^ crc16tab[((crc>>8) ^ *buf++)&0x00FF];
+	}
     return crc;
 }
+
+/* If the key is "slot-" followed by a number do not use crc16.
+ * Instead assign the keys linearly to slots. */
+uint16_t hash(const char *buf, int len) {
+    const uint32_t keys_per_slot = 346; // Need to adjust for configuration.
+    if ((len >= 5) && (buf[0] == 's') && (buf[1] == 'l') &&
+        (buf[2] == 'o') && (buf[3] == 't') && (buf[4] == '-')) {
+        uint32_t key = 0;
+        for (int counter = 5; counter < len; counter++) {
+            if ((buf[counter] >= '0') && (buf[counter] <= '9')) {
+                key = (key * 10) + (buf[counter] - '0');
+            }
+        }
+        return key / keys_per_slot;
+    } else {
+        return crc16(buf, len);
+    }
+}
+

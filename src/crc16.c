@@ -88,10 +88,12 @@ uint16_t crc16(const char *buf, int len) {
     return crc;
 }
 
-/* If the key is "slot-" followed by a number do not use crc16.
- * Instead assign the keys linearly to slots. */
+
 uint16_t hash(const char *buf, int len) {
     const uint32_t keys_per_slot = 346; // Need to adjust for configuration.
+    const uint32_t divider = 12*273; // Need to adjust for configuration.
+
+    /* If the key is "slot-" followed by a number, assign the keys linearly to slots. */
     if ((len >= 5) && (buf[0] == 's') && (buf[1] == 'l') &&
         (buf[2] == 'o') && (buf[3] == 't') && (buf[4] == '-')) {
         uint32_t key = 0;
@@ -101,6 +103,20 @@ uint16_t hash(const char *buf, int len) {
             }
         }
         return key / keys_per_slot;
+
+    /* If the key is "divi-" followed by a number, divide the keys into two crc16 slot groups. */
+    } else if ((len >= 5) && (buf[0] == 'd') && (buf[1] == 'i') &&
+        (buf[2] == 'v') && (buf[3] == 'i') && (buf[4] == '-')) {
+        uint32_t key = 0;
+        for (int counter = 5; counter < len; counter++) {
+            if ((buf[counter] >= '0') && (buf[counter] <= '9')) {
+                key = (key * 10) + (buf[counter] - '0');
+            }
+        }
+        if (key < divider*keys_per_slot) return crc16(buf, len) % divider;
+        else return divider + crc16(buf, len) % (16384 - divider);
+
+    /* Use crc16. */
     } else {
         return crc16(buf, len);
     }
